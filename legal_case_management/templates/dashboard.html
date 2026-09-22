@@ -1,0 +1,475 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - LegalEase{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- GREETING -->
+    <div class="dash-header">
+        <div>
+            <h1>👋 Hello, {{ current_user.full_name }}</h1>
+            <p class="dash-subtitle">
+                <span class="role-pill {{ current_user.role }}">{{ current_user.role|capitalize }}</span>
+                Here's your case overview for today
+            </p>
+        </div>
+        <a href="{{ url_for('add_case') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Case
+        </a>
+    </div>
+    
+    <!-- STATS CARDS -->
+    <div class="stats-grid">
+        <div class="stat-card stat-total">
+            <div class="stat-icon"><i class="fas fa-briefcase"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ total_cases }}</span>
+                <span class="stat-label">Total Cases</span>
+            </div>
+        </div>
+        <div class="stat-card stat-open">
+            <div class="stat-icon"><i class="fas fa-folder-open"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ open_cases }}</span>
+                <span class="stat-label">Open</span>
+            </div>
+        </div>
+        <div class="stat-card stat-progress">
+            <div class="stat-icon"><i class="fas fa-spinner"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ in_progress }}</span>
+                <span class="stat-label">In Progress</span>
+            </div>
+        </div>
+        <div class="stat-card stat-closed">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-info">
+                <span class="stat-value">{{ closed_cases }}</span>
+                <span class="stat-label">Closed</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="dash-grid">
+        <!-- CASES LIST -->
+        <div class="dash-main">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-briefcase"></i> 
+                        {% if search_query is defined %}Search Results for "{{ search_query }}"{% else %}Your Cases{% endif %}
+                    </h2>
+                    <div class="filter-tabs">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="Open">Open</button>
+                        <button class="filter-btn" data-filter="In Progress">Active</button>
+                        <button class="filter-btn" data-filter="Closed">Closed</button>
+                    </div>
+                </div>
+                
+                {% if cases %}
+                <div class="cases-list" id="casesList">
+                    {% for case in cases %}
+                    <a href="{{ url_for('case_detail', case_id=case.id) }}" class="case-item" data-status="{{ case.status }}">
+                        <div class="case-left">
+                            <div class="case-type-icon case-type-{{ case.case_type|lower }}">
+                                {% if case.case_type == 'Criminal' %}
+                                <i class="fas fa-gavel"></i>
+                                {% elif case.case_type == 'Civil' %}
+                                <i class="fas fa-handshake"></i>
+                                {% elif case.case_type == 'Family' %}
+                                <i class="fas fa-home"></i>
+                                {% elif case.case_type == 'Corporate' %}
+                                <i class="fas fa-building"></i>
+                                {% else %}
+                                <i class="fas fa-file-alt"></i>
+                                {% endif %}
+                            </div>
+                            <div class="case-info">
+                                <h3>{{ case.title }}</h3>
+                                <div class="case-meta">
+                                    <span class="case-number"><i class="fas fa-hashtag"></i> {{ case.case_number }}</span>
+                                    <span class="case-type-label">{{ case.case_type }}</span>
+                                    {% if case.next_hearing %}
+                                    <span class="case-hearing"><i class="fas fa-calendar"></i> {{ case.next_hearing.strftime('%b %d, %Y') }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="case-right">
+                            <span class="status-badge status-{{ case.status|lower|replace(' ', '-') }}">{{ case.status }}</span>
+                            <span class="priority-badge priority-{{ case.priority|lower }}">{{ case.priority }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-folder-open"></i>
+                    <h3>No cases found</h3>
+                    <p>Start by creating your first case</p>
+                    <a href="{{ url_for('add_case') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Case
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- SIDEBAR -->
+        <div class="dash-sidebar">
+            <!-- Upcoming Hearings -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-calendar-alt"></i> Upcoming Hearings</h3>
+                </div>
+                {% if upcoming_hearings %}
+                <div class="sidebar-list">
+                    {% for case in upcoming_hearings %}
+                    <div class="sidebar-item">
+                        <div class="sidebar-date">
+                            <span class="date-day">{{ case.next_hearing.strftime('%d') }}</span>
+                            <span class="date-month">{{ case.next_hearing.strftime('%b') }}</span>
+                        </div>
+                        <div class="sidebar-info">
+                            <strong>{{ case.title|truncate(30) }}</strong>
+                            <small>{{ case.court_name or 'Court TBD' }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="sidebar-empty">No upcoming hearings</p>
+                {% endif %}
+            </div>
+            
+            <!-- Reminders -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-bell"></i> Reminders</h3>
+                </div>
+                {% if upcoming_reminders %}
+                <div class="sidebar-list" id="remindersList">
+                    {% for r in upcoming_reminders %}
+                    <div class="sidebar-item reminder-item" id="reminder-{{ r.id }}">
+                        <div class="reminder-check">
+                            <button class="check-btn" data-Reminder-id="({{ r.id }})">
+                                <i class="far fa-circle"></i>
+                            </button>
+                        </div>
+                        <div class="sidebar-info">
+                            <strong>{{ r.title }}</strong>
+                            <small>{{ r.remind_date.strftime('%b %d, %Y %H:%M') }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="sidebar-empty">No pending reminders</p>
+                {% endif %}
+            </div>
+            
+            <!-- AI Quick Access -->
+            <div class="card ai-card">
+                <div class="ai-card-content">
+                    <i class="fas fa-robot ai-icon"></i>
+                    <h3>Need Legal Advice?</h3>
+                    <p>Chat with our AI assistant for instant guidance</p>
+                    <a href="{{ url_for('chatbot') }}" class="btn btn-primary btn-full">
+                        <i class="fas fa-comments"></i> Open AI Chat
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Filter functionality for cases
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize filter functionality only if cases exist
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const casesList = document.getElementById('casesList');
+    
+    if (casesList && filterBtns.length > 0) {
+        const caseItems = casesList.querySelectorAll('.case-item');
+        
+        if (caseItems.length > 0) {
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Update active button
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const filterValue = this.getAttribute('data-filter');
+                    
+                    // Filter cases
+                    caseItems.forEach(item => {
+                        if (filterValue === 'all') {
+                            item.style.display = 'flex';
+                        } else {
+                            const status = item.getAttribute('data-status');
+                            if (status === filterValue) {
+                                item.style.display = 'flex';
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        }
+                    });
+                });
+            });
+        }
+    }
+});
+
+// Complete reminder function
+function completeReminder(reminderId) {
+    if (confirm('Mark this reminder as completed?')) {
+        // Using fetch with proper error handling
+        fetch(`/complete-reminder/${reminderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                const reminderElement = document.getElementById(`reminder-${reminderId}`);
+                if (reminderElement) {
+                    // Animate removal
+                    reminderElement.style.transition = 'opacity 0.3s ease';
+                    reminderElement.style.opacity = '0';
+                    setTimeout(() => {
+                        reminderElement.remove();
+                        // Check if no reminders left in the list
+                        const remindersList = document.getElementById('remindersList');
+                        if (remindersList && remindersList.children.length === 0) {
+                            // Reload to show empty state message
+                            location.reload();
+                        }
+                    }, 300);
+                }
+            } else {
+                alert(data.message || 'Failed to mark reminder as completed. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    }
+}
+</script>
+
+<style>
+/* Additional styles for better UX */
+.filter-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.filter-btn:hover {
+    background: #f0f0f0;
+    transform: translateY(-1px);
+}
+
+.filter-btn.active {
+    background: #4CAF50;
+    color: white;
+    border-color: #4CAF50;
+}
+
+.case-item {
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    text-decoration: none;
+    color: inherit;
+}
+
+.case-item:hover {
+    transform: translateX(5px);
+    background: #f9f9f9;
+    text-decoration: none;
+}
+
+.case-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+}
+
+.case-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.case-type-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #f0f0f0;
+}
+
+.case-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+}
+
+.case-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    color: #666;
+}
+
+.sidebar-item {
+    transition: opacity 0.3s ease;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.check-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 5px;
+    color: #666;
+    transition: all 0.3s ease;
+}
+
+.check-btn:hover {
+    color: #4CAF50;
+    transform: scale(1.1);
+}
+
+.btn-full {
+    width: 100%;
+    text-align: center;
+    display: inline-block;
+}
+
+.ai-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+
+.ai-card .btn {
+    background: white;
+    color: #667eea;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.ai-card .btn:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.status-badge, .priority-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-open {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-in-progress {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.status-closed {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.priority-high {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.priority-medium {
+    background: #fff8e1;
+    color: #fbc02d;
+}
+
+.priority-low {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+@media (max-width: 768px) {
+    .dash-grid {
+        flex-direction: column;
+    }
+    
+    .filter-tabs {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .case-item {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    
+    .case-right {
+        justify-content: flex-start;
+        width: 100%;
+    }
+    
+    .case-left {
+        width: 100%;
+    }
+    
+    .case-meta {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+}
+</style>
+{% endblock %}

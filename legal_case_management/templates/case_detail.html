@@ -1,0 +1,916 @@
+{% extends 'base.html' %}
+{% block title %}{{ case.title }} - LegalEase{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <a href="{{ url_for('dashboard') }}" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+        <div class="page-header-actions">
+            <a href="{{ url_for('chatbot') }}?case_id={{ case.id }}" class="btn btn-outline btn-sm">
+                <i class="fas fa-robot"></i> Ask AI About This Case
+            </a>
+            <form method="POST" action="{{ url_for('delete_case', case_id=case.id) }}" 
+                  onsubmit="return confirm('Are you sure you want to delete this case? This action cannot be undone.')" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">
+                    <i class="fas fa-trash"></i> Delete Case
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- CASE HEADER CARD -->
+    <div class="case-header-card">
+        <div class="case-header-top">
+            <div class="case-header-info">
+                <div class="case-number-badge">{{ case.case_number }}</div>
+                <h1>{{ case.title }}</h1>
+                <div class="case-badges">
+                    <span class="status-badge status-{{ case.status|lower|replace(' ', '-') }}">
+                        <i class="fas fa-circle"></i> {{ case.status }}
+                    </span>
+                    <span class="priority-badge priority-{{ case.priority|lower }}">
+                        <i class="fas fa-flag"></i> {{ case.priority }}
+                    </span>
+                    <span class="type-badge">
+                        <i class="fas fa-tag"></i> {{ case.case_type }}
+                    </span>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="toggleEditModal()">
+                <i class="fas fa-edit"></i> Edit Case
+            </button>
+        </div>
+        
+        <div class="case-details-grid">
+            <div class="detail-item">
+                <span class="detail-label"><i class="fas fa-landmark"></i> Court</span>
+                <span class="detail-value">{{ case.court_name or 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label"><i class="fas fa-user-tie"></i> Judge</span>
+                <span class="detail-value">{{ case.judge_name or 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label"><i class="fas fa-users"></i> Opposing Party</span>
+                <span class="detail-value">{{ case.opposing_party or 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label"><i class="fas fa-calendar"></i> Next Hearing</span>
+                <span class="detail-value {% if case.next_hearing %}hearing-date{% endif %}">
+                    {{ case.next_hearing.strftime('%B %d, %Y at %I:%M %p') if case.next_hearing else 'Not scheduled' }}
+                </span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label"><i class="fas fa-calendar-plus"></i> Filed On</span>
+                <span class="detail-value">{{ case.filing_date.strftime('%B %d, %Y') }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label"><i class="fas fa-user"></i> Owner</span>
+                <span class="detail-value">{{ case.owner.full_name }}</span>
+            </div>
+            {% if case.lawyer %}
+            <div class="detail-item">
+                <span class="detail-label"><i class="fas fa-gavel"></i> Lawyer</span>
+                <span class="detail-value">{{ case.lawyer.full_name }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="case-description">
+            <h3><i class="fas fa-align-left"></i> Description</h3>
+            <p>{{ case.description }}</p>
+        </div>
+    </div>
+
+    <!-- TABS SECTION -->
+    <div class="tabs-container">
+        <div class="tabs-header">
+            <button class="tab-btn active" onclick="switchTab(event, 'documents')">
+                <i class="fas fa-file-alt"></i> Documents <span class="tab-count">{{ documents|length }}</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab(event, 'notes')">
+                <i class="fas fa-sticky-note"></i> Notes <span class="tab-count">{{ notes|length }}</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab(event, 'reminders')">
+                <i class="fas fa-bell"></i> Reminders <span class="tab-count">{{ reminders|length }}</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab(event, 'tasks')">
+                <i class="fas fa-tasks"></i> Tasks <span class="tab-count">{{ case.tasks|selectattr("status", "equalto", "pending")|list|length }}</span>
+            </button>
+        </div>
+
+        <!-- DOCUMENTS TAB -->
+        <div class="tab-content active" id="tab-documents">
+            <div class="tab-action-bar">
+                <h3>📁 Case Documents</h3>
+                <button class="btn btn-primary btn-sm" onclick="toggleUploadForm()">
+                    <i class="fas fa-upload"></i> Upload Document
+                </button>
+            </div>
+
+            <!-- Upload Form (Hidden by default) -->
+            <div class="upload-form-container" id="uploadForm" style="display:none;">
+                <form method="POST" action="{{ url_for('upload_document', case_id=case.id) }}" enctype="multipart/form-data" class="upload-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Select File *</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" name="document" required id="fileInput" class="form-input" 
+                                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.xlsx,.xls">
+                                <small>Allowed: PDF, DOC, DOCX, JPG, PNG, TXT, XLSX (Max 16MB)</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select name="category" class="form-input">
+                                <option value="General">📄 General</option>
+                                <option value="Evidence">🔍 Evidence</option>
+                                <option value="Contract">📝 Contract</option>
+                                <option value="Court Order">⚖️ Court Order</option>
+                                <option value="Correspondence">✉️ Correspondence</option>
+                                <option value="Financial">💰 Financial</option>
+                                <option value="Identity">🪪 Identity Documents</option>
+                                <option value="Witness">👤 Witness Statement</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <input type="text" name="doc_description" placeholder="Brief description of the document" class="form-input">
+                    </div>
+                    <div class="form-actions-inline">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="toggleUploadForm()">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-cloud-upload-alt"></i> Upload
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {% if documents %}
+            <div class="documents-grid">
+                {% for doc in documents %}
+                <div class="document-card">
+                    <div class="doc-icon doc-{{ doc.file_type }}">
+                        <i class="fas fa-{% if doc.file_type == 'pdf' %}file-pdf{% elif doc.file_type in ['doc', 'docx'] %}file-word{% elif doc.file_type in ['jpg', 'jpeg', 'png'] %}file-image{% elif doc.file_type in ['xlsx', 'xls'] %}file-excel{% else %}file-alt{% endif %}"></i>
+                    </div>
+                    <div class="doc-info">
+                        <h4>{{ doc.original_filename|truncate(35) }}</h4>
+                        <div class="doc-meta">
+                            <span class="doc-category"><i class="fas fa-folder"></i> {{ doc.category }}</span>
+                            <span class="doc-size"><i class="fas fa-weight"></i> {{ (doc.file_size / 1024)|round(1) }} KB</span>
+                            <span class="doc-date"><i class="fas fa-clock"></i> {{ doc.uploaded_at.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        {% if doc.description %}
+                        <p class="doc-description">{{ doc.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="doc-actions">
+                        <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-outline btn-xs" title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}" 
+                              onsubmit="return confirm('Delete this document?')" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-xs" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-sm">
+                <i class="fas fa-file-upload"></i>
+                <p>No documents uploaded yet. Upload your first document above.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- NOTES TAB -->
+        <div class="tab-content" id="tab-notes">
+            <div class="tab-action-bar">
+                <h3>📝 Case Notes</h3>
+            </div>
+            
+            <form method="POST" action="{{ url_for('add_note', case_id=case.id) }}" class="note-form">
+                <div class="form-group">
+                    <textarea name="note_content" required rows="3" placeholder="Write a new note about this case..." class="form-input"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> Add Note
+                </button>
+            </form>
+
+            {% if notes %}
+            <div class="notes-timeline">
+                {% for note in notes %}
+                <div class="note-item">
+                    <div class="note-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="note-content">
+                        <div class="note-header">
+                            <strong>{{ note.author.full_name }}</strong>
+                            <span class="note-time">{{ note.created_at.strftime('%b %d, %Y at %I:%M %p') }}</span>
+                        </div>
+                        <p>{{ note.content }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-sm">
+                <i class="fas fa-sticky-note"></i>
+                <p>No notes yet. Add your first note above.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- REMINDERS TAB -->
+        <div class="tab-content" id="tab-reminders">
+            <div class="tab-action-bar">
+                <h3>⏰ Reminders</h3>
+                <button class="btn btn-primary btn-sm" onclick="toggleReminderForm()">
+                    <i class="fas fa-plus"></i> Add Reminder
+                </button>
+            </div>
+
+            <div class="reminder-form-container" id="reminderForm" style="display:none;">
+                <form method="POST" action="{{ url_for('add_reminder', case_id=case.id) }}" class="upload-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Reminder Title *</label>
+                            <input type="text" name="reminder_title" required placeholder="e.g., File motion by deadline" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Date & Time *</label>
+                            <input type="datetime-local" name="remind_date" required class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <input type="text" name="reminder_description" placeholder="Additional details..." class="form-input">
+                    </div>
+                    <div class="form-actions-inline">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="toggleReminderForm()">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-bell"></i> Set Reminder
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {% if reminders %}
+            <div class="reminders-list">
+                {% for r in reminders %}
+                <div class="reminder-card {% if r.is_completed %}completed{% endif %}" id="reminder-{{ r.id }}">
+                    <div class="reminder-check">
+                        {% if not r.is_completed %}
+                        <button class="check-btn" data-reminder-id="{{ r.id }}">
+                            <i class="far fa-circle"></i>
+                        </button>
+                        {% else %}
+                        <span class="check-done"><i class="fas fa-check-circle"></i></span>
+                        {% endif %}
+                    </div>
+                    <div class="reminder-info">
+                        <h4>{{ r.title }}</h4>
+                        {% if r.description %}
+                        <p>{{ r.description }}</p>
+                        {% endif %}
+                        <span class="reminder-time">
+                            <i class="fas fa-clock"></i> {{ r.remind_date.strftime('%B %d, %Y at %I:%M %p') }}
+                        </span>
+                    </div>
+                    <div class="reminder-status">
+                        {% if r.is_completed %}
+                            <span class="badge-completed">✅ Done</span>
+                        {% elif r.remind_date < now %}
+                            <span class="badge-overdue">⚠️ Overdue</span>
+                        {% else %}
+                            <span class="badge-pending">🔔 Pending</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-sm">
+                <i class="fas fa-bell"></i>
+                <p>No reminders set. Add one to stay on top of deadlines.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- TASKS TAB - STEP 6 -->
+        <div class="tab-content" id="tab-tasks">
+            <div class="tab-action-bar">
+                <h3>📋 Case Tasks</h3>
+                <a href="{{ url_for('add_task') }}?case_id={{ case.id }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> Add Task for this Case
+                </a>
+            </div>
+
+            {% set case_tasks = case.tasks|selectattr("status", "equalto", "pending")|list %}
+            {% if case_tasks %}
+                <div class="tasks-list">
+                    {% for task in case_tasks %}
+                    <div class="task-card">
+                        <div class="task-check">
+                            <input type="checkbox" class="task-checkbox-quick" data-task-id="{{ task.id }}">
+                        </div>
+                        <div class="task-info">
+                            <h4>{{ task.title }}</h4>
+                            {% if task.description %}
+                            <p>{{ task.description }}</p>
+                            {% endif %}
+                            <div class="task-meta">
+                                <span class="task-priority priority-{{ task.priority }}">
+                                    {% if task.priority == 'high' %}🔴 High
+                                    {% elif task.priority == 'medium' %}🟡 Medium
+                                    {% else %}🔵 Low{% endif %}
+                                </span>
+                                <span class="task-due">
+                                    <i class="fas fa-calendar"></i> 
+                                    Due: {{ task.due_date.strftime('%b %d, %Y at %I:%M %p') if task.due_date else 'No due date' }}
+                                </span>
+                                <span class="task-assignee">
+                                    <i class="fas fa-user"></i> Assigned to: {{ task.assigned_to.full_name }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="task-actions">
+                            <a href="{{ url_for('view_tasks') }}" class="btn btn-outline btn-xs">
+                                <i class="fas fa-external-link-alt"></i> View All
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+            <div class="empty-state-sm">
+                <i class="fas fa-tasks"></i>
+                <p>No pending tasks for this case. Click "Add Task" to create one.</p>
+            </div>
+            {% endif %}
+
+            <!-- Show completed tasks for this case -->
+            {% set completed_tasks = case.tasks|selectattr("status", "equalto", "completed")|list %}
+            {% if completed_tasks %}
+            <details class="completed-tasks-details">
+                <summary style="cursor: pointer; padding: 10px; color: #666;">
+                    <i class="fas fa-check-circle"></i> Completed Tasks ({{ completed_tasks|length }})
+                </summary>
+                <div class="completed-tasks-list">
+                    {% for task in completed_tasks %}
+                    <div class="completed-task-item">
+                        <span><i class="fas fa-check-circle" style="color: #4CAF50;"></i> {{ task.title }}</span>
+                        <small>Completed: {{ task.completed_at.strftime('%b %d, %Y') if task.completed_at else 'Unknown' }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- EDIT CASE MODAL -->
+<div class="modal-overlay" id="editModal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-edit"></i> Edit Case</h2>
+            <button class="modal-close" onclick="toggleEditModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="{{ url_for('edit_case', case_id=case.id) }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Case Title</label>
+                    <input type="text" name="title" value="{{ case.title }}" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="3" class="form-input" required>{{ case.description }}</textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Case Type</label>
+                        <select name="case_type" class="form-input">
+                            {% for t in ['Civil','Criminal','Family','Corporate','Property','Labor','Tax','IP','Other'] %}
+                            <option value="{{ t }}" {% if case.case_type == t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status" class="form-input">
+                            {% for s in ['Open','In Progress','On Hold','Closed'] %}
+                            <option value="{{ s }}" {% if case.status == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select name="priority" class="form-input">
+                            {% for p in ['Low','Medium','High','Urgent'] %}
+                            <option value="{{ p }}" {% if case.priority == p %}selected{% endif %}>{{ p }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Court Name</label>
+                        <input type="text" name="court_name" value="{{ case.court_name or '' }}" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Judge Name</label>
+                        <input type="text" name="judge_name" value="{{ case.judge_name or '' }}" class="form-input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Opposing Party</label>
+                        <input type="text" name="opposing_party" value="{{ case.opposing_party or '' }}" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Next Hearing</label>
+                        <input type="datetime-local" name="next_hearing" class="form-input"
+                               value="{{ case.next_hearing.strftime('%Y-%m-%dT%H:%M') if case.next_hearing else '' }}">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="toggleEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Add these styles if not already in base.css */
+.tabs-container {
+    margin-top: 20px;
+}
+
+.tabs-header {
+    display: flex;
+    gap: 5px;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tab-btn.active {
+    color: #4CAF50;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #4CAF50;
+}
+
+.tab-count {
+    background: #e0e0e0;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.documents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.document-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    gap: 15px;
+    align-items: flex-start;
+}
+
+.doc-icon {
+    font-size: 32px;
+}
+
+.doc-info {
+    flex: 1;
+}
+
+.doc-info h4 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+}
+
+.doc-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.doc-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-xs {
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+.notes-timeline {
+    margin-top: 20px;
+}
+
+.note-item {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.note-avatar {
+    font-size: 32px;
+    color: #4CAF50;
+}
+
+.note-content {
+    flex: 1;
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.note-time {
+    font-size: 12px;
+    color: #999;
+}
+
+.reminders-list {
+    margin-top: 20px;
+}
+
+.reminder-card {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.reminder-card.completed {
+    opacity: 0.6;
+    background: #f9f9f9;
+}
+
+.reminder-info {
+    flex: 1;
+}
+
+.reminder-info h4 {
+    margin: 0 0 5px 0;
+}
+
+.reminder-time {
+    font-size: 12px;
+    color: #666;
+}
+
+.check-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+    padding: 5px;
+}
+
+.check-btn:hover {
+    color: #4CAF50;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.empty-state-sm {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+.empty-state-sm i {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+/* Task Card Styles for Step 6 */
+.tasks-list {
+    margin-top: 20px;
+}
+
+.task-card {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.task-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.task-check {
+    padding-top: 5px;
+}
+
+.task-checkbox-quick {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.task-info {
+    flex: 1;
+}
+
+.task-info h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+}
+
+.task-info p {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #666;
+}
+
+.task-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    flex-wrap: wrap;
+}
+
+.task-priority {
+    font-weight: 600;
+}
+
+.priority-high {
+    color: #dc3545;
+}
+
+.priority-medium {
+    color: #ffc107;
+}
+
+.priority-low {
+    color: #28a745;
+}
+
+.task-due, .task-assignee {
+    color: #666;
+}
+
+.task-actions {
+    display: flex;
+    align-items: center;
+}
+
+.completed-tasks-details {
+    margin-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 15px;
+}
+
+.completed-tasks-list {
+    margin-top: 10px;
+}
+
+.completed-task-item {
+    padding: 8px;
+    margin: 5px 0;
+    background: #f9f9f9;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.completed-task-item span {
+    font-size: 13px;
+}
+
+.completed-task-item small {
+    font-size: 11px;
+    color: #999;
+}
+</style>
+
+<script>
+function switchTab(event, tabName) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Add active class to selected tab
+    event.target.closest('.tab-btn').classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+}
+
+function toggleUploadForm() {
+    const form = document.getElementById('uploadForm');
+    if (form) {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function toggleReminderForm() {
+    const form = document.getElementById('reminderForm');
+    if (form) {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function toggleEditModal() {
+    const modal = document.getElementById('editModal');
+    if (modal) {
+        modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+    }
+}
+
+// Complete reminder function with event delegation
+document.addEventListener('DOMContentLoaded', function() {
+    document.body.addEventListener('click', function(e) {
+        const checkBtn = e.target.closest('.check-btn');
+        if (checkBtn && checkBtn.classList.contains('check-btn')) {
+            const reminderId = checkBtn.getAttribute('data-reminder-id');
+            if (reminderId && confirm('Mark this reminder as completed?')) {
+                fetch(`/complete-reminder/${reminderId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Failed to mark reminder as completed.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                });
+            }
+        }
+    });
+});
+
+// Task checkbox functionality for Step 6
+document.addEventListener('DOMContentLoaded', function() {
+    document.body.addEventListener('change', function(e) {
+        if (e.target.classList.contains('task-checkbox-quick')) {
+            const taskId = e.target.dataset.taskId;
+            const taskCard = e.target.closest('.task-card');
+            
+            fetch(`/task/${taskId}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (taskCard) {
+                        taskCard.style.opacity = '0.5';
+                        setTimeout(() => {
+                            location.reload();
+                        }, 500);
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    alert('Error updating task');
+                    e.target.checked = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred');
+                e.target.checked = false;
+            });
+        }
+    });
+});
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('editModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

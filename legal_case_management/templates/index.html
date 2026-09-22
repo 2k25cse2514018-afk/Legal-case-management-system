@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}LegalEase - Smart Legal Case Management{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-particles" id="particles"></div>
+    <div class="hero-content">
+        <div class="hero-badge">⚖️ AI-Powered Legal Management</div>
+        <h1 class="hero-title">
+            Manage Your Legal Cases<br>
+            <span class="gradient-text">Smarter & Faster</span>
+        </h1>
+        <p class="hero-subtitle">
+            Organize documents, track hearings, set reminders, and get AI-powered legal guidance — 
+            all in one powerful platform built for lawyers and clients alike.
+        </p>
+        <div class="hero-buttons">
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-rocket"></i> Get Started Free
+            </a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline btn-lg">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </a>
+        </div>
+        <div class="hero-stats">
+            <div class="stat-item">
+                <span class="stat-number">🔒</span>
+                <span class="stat-label">Secure & Private</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">🤖</span>
+                <span class="stat-label">AI Assistant</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">📁</span>
+                <span class="stat-label">Document Mgmt</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">⏰</span>
+                <span class="stat-label">Smart Reminders</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-section">
+    <div class="section-header">
+        <h2>✨ Powerful Features</h2>
+        <p>Everything you need to manage legal cases efficiently</p>
+    </div>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                <i class="fas fa-folder-open"></i>
+            </div>
+            <h3>Case Management</h3>
+            <p>Create, organize, and track all your legal cases with detailed information, status tracking, and priority management.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                <i class="fas fa-file-upload"></i>
+            </div>
+            <h3>Document Storage</h3>
+            <p>Upload, categorize, and manage all case-related documents securely. Support for PDF, DOCX, images, and more.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                <i class="fas fa-robot"></i>
+            </div>
+            <h3>AI Legal Assistant</h3>
+            <p>Get instant legal guidance powered by Google Gemini AI. Ask questions, get reminders, and receive case insights.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+                <i class="fas fa-bell"></i>
+            </div>
+            <h3>Smart Reminders</h3>
+            <p>Never miss a deadline or hearing. Set custom reminders for important dates and track upcoming events.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #fa709a, #fee140);">
+                <i class="fas fa-users"></i>
+            </div>
+            <h3>Dual Access</h3>
+            <p>Designed for both lawyers and clients. Lawyers manage cases while clients track their case progress transparently.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #a18cd1, #fbc2eb);">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h3>Dashboard Analytics</h3>
+            <p>Visual overview of all cases, statuses, upcoming hearings, and reminders at a glance on your personalized dashboard.</p>
+        </div>
+    </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-it-works">
+    <div class="section-header">
+        <h2>🚀 How It Works</h2>
+        <p>Get started in three simple steps</p>
+    </div>
+    <div class="steps-container">
+        <div class="step">
+            <div class="step-number">1</div>
+            <h3>Register & Login</h3>
+            <p>Create your account as a Lawyer or Client and access your personalized dashboard.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <h3>Add Your Cases</h3>
+            <p>Create cases, upload documents, add notes, and set important reminders.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <h3>Get AI Assistance</h3>
+            <p>Chat with our AI assistant for legal guidance, case insights, and management tips.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

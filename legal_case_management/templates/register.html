@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Register - LegalEase{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card auth-card-wide">
+        <div class="auth-header">
+            <div class="auth-icon">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <h2>Create Account</h2>
+            <p>Join LegalEase and manage your legal cases efficiently</p>
+        </div>
+        
+        <form method="POST" class="auth-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Full Name</label>
+                    <input type="text" name="full_name" required placeholder="John Doe" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-at"></i> Username</label>
+                    <input type="text" name="username" required placeholder="johndoe" class="form-input">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <input type="email" name="email" required placeholder="john@example.com" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-phone"></i> Phone</label>
+                    <input type="text" name="phone" placeholder="+1 234 567 890" class="form-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-user-tag"></i> I am a</label>
+                <div class="role-selector">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="client" checked>
+                        <div class="role-card">
+                            <i class="fas fa-user"></i>
+                            <span>Client</span>
+                            <small>I need legal help</small>
+                        </div>
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="lawyer">
+                        <div class="role-card">
+                            <i class="fas fa-gavel"></i>
+                            <span>Lawyer</span>
+                            <small>I provide legal services</small>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" name="password" id="reg_password" required placeholder="Min 6 characters" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Confirm Password</label>
+                    <input type="password" name="confirm_password" required placeholder="Re-enter password" class="form-input">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-full">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Already have an account? <a href="{{ url_for('login') }}">Sign in here</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

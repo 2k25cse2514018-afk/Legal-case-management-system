@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% block title %}AI Legal Assistant - LegalEase{% endblock %}
+
+{% block content %}
+<div class="chatbot-container">
+    <!-- SIDEBAR -->
+    <div class="chat-sidebar">
+        <div class="chat-sidebar-header">
+            <div class="bot-avatar-lg">
+                <i class="fas fa-robot"></i>
+            </div>
+            <h2>LegalBot AI</h2>
+            <p>Powered by Google Gemini</p>
+        </div>
+
+        <div class="chat-case-selector">
+            <label><i class="fas fa-briefcase"></i> Select Case Context</label>
+            <select id="caseSelector" class="form-input">
+                <option value="">General Legal Query</option>
+                {% for case in cases %}
+                <option value="{{ case.id }}" {% if request.args.get('case_id') == case.id|string %}selected{% endif %}>
+                    {{ case.case_number }} - {{ case.title|truncate(30) }}
+                </option>
+                {% endfor %}
+            </select>
+            <small>Select a case for contextual advice</small>
+        </div>
+
+        <div class="chat-quick-actions">
+            <h3>💡 Quick Questions</h3>
+            <button class="quick-btn" onclick="sendQuickMessage('What documents do I need to file a civil case?')">
+                <i class="fas fa-file-alt"></i> Documents needed?
+            </button>
+            <button class="quick-btn" onclick="sendQuickMessage('What are the typical stages of a court case?')">
+                <i class="fas fa-list-ol"></i> Case stages?
+            </button>
+            <button class="quick-btn" onclick="sendQuickMessage('How should I organize my case documents?')">
+                <i class="fas fa-folder-open"></i> Organize docs?
+            </button>
+            <button class="quick-btn" onclick="sendQuickMessage('What are important deadlines I should track?')">
+                <i class="fas fa-clock"></i> Key deadlines?
+            </button>
+            <button class="quick-btn" onclick="sendQuickMessage('Give me tips for preparing for a court hearing')">
+                <i class="fas fa-gavel"></i> Hearing prep tips
+            </button>
+            <button class="quick-btn" onclick="sendQuickMessage('What are my rights as a defendant in a criminal case?')">
+                <i class="fas fa-shield-alt"></i> Defendant rights?
+            </button>
+        </div>
+
+        <div class="chat-disclaimer">
+            <i class="fas fa-exclamation-triangle"></i>
+            <small>AI responses are for informational purposes only and do not constitute legal advice. Always consult a licensed attorney.</small>
+        </div>
+    </div>
+
+    <!-- MAIN CHAT AREA -->
+    <div class="chat-main">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <h2><i class="fas fa-comments"></i> Chat with LegalBot</h2>
+                <span class="online-badge"><i class="fas fa-circle"></i> Online</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="clearChat()">
+                <i class="fas fa-broom"></i> Clear Chat
+            </button>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <!-- Welcome Message -->
+            <div class="message bot-message">
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-bubble">
+                    <div class="message-content">
+                        <p>👋 Hello <strong>{{ current_user.full_name }}</strong>! I'm <strong>LegalBot</strong>, your AI legal assistant.</p>
+                        <p>I can help you with:</p>
+                        <ul>
+                            <li>📋 General legal information & guidance</li>
+                            <li>📁 Document management tips</li>
+                            <li>⏰ Deadline & reminder suggestions</li>
+                            <li>⚖️ Case preparation advice</li>
+                            <li>📖 Legal procedure explanations</li>
+                        </ul>
+                        <p><em>Select a case from the sidebar for contextual advice, or ask me anything!</em></p>
+                    </div>
+                    <span class="message-time">Just now</span>
+                </div>
+            </div>
+
+            <!-- Previous Chat History -->
+            {% for chat in history %}
+            <div class="message user-message">
+                <div class="message-bubble">
+                    <div class="message-content">{{ chat.message }}</div>
+                    <span class="message-time">{{ chat.created_at.strftime('%b %d, %I:%M %p') }}</span>
+                </div>
+                <div class="message-avatar user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+            <div class="message bot-message">
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-bubble">
+                    <div class="message-content">{{ chat.response }}</div>
+                    <span class="message-time">{{ chat.created_at.strftime('%b %d, %I:%M %p') }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" style="display:none;">
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="typing-dots">
+                <span></span><span></span><span></span>
+            </div>
+            <span>LegalBot is thinking...</span>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="chat-input-container">
+            <form id="chatForm" onsubmit="sendMessage(event)">
+                <div class="chat-input-wrapper">
+                    <textarea id="chatInput" placeholder="Ask me anything about legal matters..." 
+                              rows="1" required
+                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendMessage(event);}"></textarea>
+                    <button type="submit" class="send-btn" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const typingIndicator = document.getElementById('typingIndicator');
+const sendBtn = document.getElementById('sendBtn');
+
+// Auto-scroll to bottom
+chatMessages.scrollTop = chatMessages.scrollHeight;
+
+function sendMessage(e) {
+    e.preventDefault();
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    // Add user message to chat
+    appendMessage(message, 'user');
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+
+    // Show typing indicator
+    typingIndicator.style.display = 'flex';
+    sendBtn.disabled = true;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    const caseId = document.getElementById('caseSelector').value;
+
+    // Send to backend
+    fetch('/chatbot/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message, case_id: caseId || null })
+    })
+    .then(response => response.json())
+    .then(data => {
+        typingIndicator.style.display = 'none';
+        sendBtn.disabled = false;
+        if (data.response) {
+            appendMessage(data.response, 'bot');
+        } else {
+            appendMessage('Sorry, I could not process your request. Please try again.', 'bot');
+        }
+    })
+    .catch(error => {
+        typingIndicator.style.display = 'none';
+        sendBtn.disabled = false;
+        appendMessage('Connection error. Please check your internet and try again.', 'bot');
+        console.error('Error:', error);
+    });
+}
+
+function appendMessage(text, sender) {
+    const now = new Date();
+    const timeStr = now.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${sender}-message`;
+
+    if (sender === 'user') {
+        msgDiv.innerHTML = `
+            <div class="message-bubble">
+                <div class="message-content">${escapeHtml(text)}</div>
+                <span class="message-time">${timeStr}</span>
+            </div>
+            <div class="message-avatar user-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+        `;
+    } else {
+        // Format bot response with markdown-like styling
+        let formatted = formatBotResponse(text);
+        msgDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-bubble">
+                <div class="message-content">${formatted}</div>
+                <span class="message-time">${timeStr}</span>
+            </div>
+        `;
+    }
+
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function sendQuickMessage(msg) {
+    chatInput.value = msg;
+    sendMessage(new Event('submit'));
+}
+
+function clearChat() {
+    const messages = chatMessages.querySelectorAll('.message');
+    messages.forEach((msg, index) => {
+        if (index > 0) msg.remove(); // Keep welcome message
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatBotResponse(text) {
+    // Convert **bold** to <strong>
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Convert *italic* to <em>
+    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    // Convert bullet points
+    text = text.replace(/^[-•]\s+(.+)/gm, '<li>$1</li>');
+    text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    // Convert numbered lists
+    text = text.replace(/^\d+\.\s+(.+)/gm, '<li>$1</li>');
+    // Convert newlines to <br>
+    text = text.replace(/\n/g, '<br>');
+    return text;
+}
+
+// Auto-resize textarea
+chatInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+{% block title %}Tasks - LegalEase{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h1><i class="fas fa-tasks"></i> My Tasks</h1>
+            <p class="page-subtitle">Manage and track your legal tasks</p>
+        </div>
+        <a href="{{ url_for('add_task') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add New Task
+        </a>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-row">
+        <div class="stat-card pending-stat">
+            <div class="stat-number">{{ pending_tasks|length }}</div>
+            <div class="stat-label">Pending Tasks</div>
+        </div>
+        <div class="stat-card completed-stat">
+            <div class="stat-number">{{ completed_tasks|length }}</div>
+            <div class="stat-label">Completed Tasks</div>
+        </div>
+        <div class="stat-card total-stat">
+            <div class="stat-number">{{ pending_tasks|length + completed_tasks|length }}</div>
+            <div class="stat-label">Total Tasks</div>
+        </div>
+    </div>
+
+    <!-- Pending Tasks Section -->
+    <div class="tasks-section">
+        <div class="section-header">
+            <h2><i class="fas fa-clock"></i> Pending Tasks</h2>
+            <span class="section-badge">{{ pending_tasks|length }} pending</span>
+        </div>
+
+        {% if pending_tasks %}
+            <div class="tasks-table-container">
+                <table class="tasks-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px"></th>
+                            <th>Task</th>
+                            <th>Priority</th>
+                            <th>Due Date</th>
+                            <th>Case</th>
+                            <th>Assigned To</th>
+                            <th style="width: 80px">Actions</th>
+                        </thead>
+                        <tbody>
+                            {% for task in pending_tasks %}
+                            <tr class="task-row" data-task-id="{{ task.id }}">
+                                <td class="checkbox-cell">
+                                    <input type="checkbox" class="task-checkbox" data-task-id="{{ task.id }}">
+                                </td>
+                                <td class="task-title-cell">
+                                    <div class="task-title">{{ task.title }}</div>
+                                    {% if task.description %}
+                                        <div class="task-description">{{ task.description[:80] }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if task.priority == 'high' %}
+                                        <span class="priority-badge priority-high">
+                                            <i class="fas fa-arrow-up"></i> High
+                                        </span>
+                                    {% elif task.priority == 'medium' %}
+                                        <span class="priority-badge priority-medium">
+                                            <i class="fas fa-minus"></i> Medium
+                                        </span>
+                                    {% else %}
+                                        <span class="priority-badge priority-low">
+                                            <i class="fas fa-arrow-down"></i> Low
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if task.due_date %}
+                                        {% if task.due_date < now %}
+                                            <span class="due-date overdue">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                {{ task.due_date.strftime('%b %d, %Y %I:%M %p') }}
+                                            </span>
+                                        {% else %}
+                                            <span class="due-date">
+                                                <i class="fas fa-calendar"></i>
+                                                {{ task.due_date.strftime('%b %d, %Y %I:%M %p') }}
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="due-date no-date">
+                                            <i class="fas fa-calendar-alt"></i> No due date
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if task.case %}
+                                        <a href="{{ url_for('case_detail', case_id=task.case.id) }}" class="case-link">
+                                            <i class="fas fa-folder"></i> {{ task.case.case_number }}
+                                        </a>
+                                    {% else %}
+                                        <span class="no-case">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="assignee">
+                                        <i class="fas fa-user-circle"></i>
+                                        {{ task.assigned_to.full_name }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn-icon delete-task" data-task-id="{{ task.id }}" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-check-circle"></i>
+                <h3>No pending tasks</h3>
+                <p>Great job! You have no pending tasks at the moment.</p>
+                <a href="{{ url_for('add_task') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Create a Task
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Completed Tasks Section -->
+    {% if completed_tasks %}
+    <div class="tasks-section completed-section">
+        <div class="section-header">
+            <h2><i class="fas fa-check-circle"></i> Completed Tasks</h2>
+            <span class="section-badge completed">{{ completed_tasks|length }} completed</span>
+        </div>
+
+        <div class="completed-tasks-list">
+            {% for task in completed_tasks %}
+            <div class="completed-task-card">
+                <div class="completed-check">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="completed-info">
+                    <div class="completed-title">{{ task.title }}</div>
+                    <div class="completed-meta">
+                        <span><i class="fas fa-user"></i> {{ task.assigned_to.full_name }}</span>
+                        <span><i class="fas fa-check"></i> Completed: {{ task.completed_at.strftime('%b %d, %Y') }}</span>
+                        {% if task.case %}
+                            <span><i class="fas fa-folder"></i> {{ task.case.case_number }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="completed-actions">
+                    <button class="btn-icon reopen-task" data-task-id="{{ task.id }}" title="Reopen Task">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="btn-icon delete-task" data-task-id="{{ task.id }}" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+/* Page Layout */
+.page-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 28px;
+    color: #333;
+}
+
+.page-subtitle {
+    margin: 5px 0 0;
+    color: #666;
+    font-size: 14px;
+}
+
+/* Stats Row */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 35px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.stat-number {
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 14px;
+}
+
+.pending-stat .stat-number {
+    color: #ff9800;
+}
+
+.completed-stat .stat-number {
+    color: #4CAF50;
+}
+
+.total-stat .stat-number {
+    color: #2196F3;
+}
+
+/* Tasks Section */
+.tasks-section {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.section-badge {
+    background: #ff9800;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.section-badge.completed {
+    background: #4CAF50;
+}
+
+/* Tasks Table */
+.tasks-table-container {
+    overflow-x: auto;
+}
+
+.tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tasks-table thead {
+    background: #f8f9fa;
+}
+
+.tasks-table th {
+    padding: 15px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tasks-table td {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.task-row:hover {
+    background: #fafafa;
+}
+
+.checkbox-cell {
+    text-align: center;
+}
+
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.task-title-cell {
+    max-width: 300px;
+}
+
+.task-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.task-description {
+    font-size: 12px;
+    color: #888;
+}
+
+/* Priority Badges */
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.priority-high {
+    background: #ffebee;
+    color: #dc3545;
+}
+
+.priority-medium {
+    background: #fff3e0;
+    color: #ff9800;
+}
+
+.priority-low {
+    background: #e8f5e9;
+    color: #4CAF50;
+}
+
+/* Due Date */
+.due-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #555;
+}
+
+.due-date.overdue {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.due-date.no-date {
+    color: #999;
+}
+
+/* Case Link */
+.case-link {
+    color: #4CAF50;
+    text-decoration: none;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.case-link:hover {
+    text-decoration: underline;
+}
+
+.no-case {
+    color: #bbb;
+}
+
+/* Assignee */
+.assignee {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #555;
+}
+
+/* Icon Buttons */
+.btn-icon {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+
+.btn-icon:hover {
+    background: #f0f0f0;
+}
+
+.delete-task {
+    color: #dc3545;
+}
+
+.delete-task:hover {
+    background: #ffebee;
+}
+
+/* Completed Tasks */
+.completed-section {
+    opacity: 0.8;
+}
+
+.completed-tasks-list {
+    padding: 10px;
+}
+
+.completed-task-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    margin: 10px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    transition: background 0.3s;
+}
+
+.completed-task-card:hover {
+    background: #f0f0f0;
+}
+
+.completed-check {
+    font-size: 24px;
+    color: #4CAF50;
+}
+
+.completed-info {
+    flex: 1;
+}
+
+.completed-title {
+    font-size: 15px;
+    color: #666;
+    text-decoration: line-through;
+    margin-bottom: 5px;
+}
+
+.completed-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    color: #999;
+}
+
+.completed-meta i {
+    margin-right: 3px;
+}
+
+.completed-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.reopen-task {
+    color: #ff9800;
+}
+
+.reopen-task:hover {
+    background: #fff3e0;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 64px;
+    margin-bottom: 20px;
+    color: #ddd;
+}
+
+.empty-state h3 {
+    margin: 0 0 10px;
+    color: #666;
+}
+
+.empty-state p {
+    margin-bottom: 20px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .tasks-table th,
+    .tasks-table td {
+        padding: 10px;
+    }
+    
+    .task-title-cell {
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .completed-meta {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .stats-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Button Styles */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+    cursor: pointer;
+    border: none;
+}
+
+.btn-primary {
+    background: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #388E3C;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+</style>
+
+<script>
+// Task checkbox toggle
+document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const taskId = this.dataset.taskId;
+        const row = this.closest('.task-row');
+        
+        fetch(`/task/${taskId}/toggle`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                row.style.opacity = '0.5';
+                setTimeout(() => {
+                    location.reload();
+                }, 300);
+            } else {
+                alert('Error updating task');
+                this.checked = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred');
+            this.checked = false;
+        });
+    });
+});
+
+// Reopen task
+document.querySelectorAll('.reopen-task').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const taskId = this.dataset.taskId;
+        
+        fetch(`/task/${taskId}/toggle`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    });
+});
+
+// Delete task
+document.querySelectorAll('.delete-task').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const taskId = this.dataset.taskId;
+        if (confirm('Are you sure you want to delete this task?')) {
+            fetch(`/task/${taskId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(() => location.reload());
+        }
+    });
+});
+</script>
+{% endblock %}
