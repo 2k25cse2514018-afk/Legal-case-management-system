@@ -1,7 +1,0 @@
-[project]
-name = "legal-case-management"
-version = "0.1.0"
-requires-python = ">=3.12"
-
-[tool.vercel]
-entrypoint = "legal_case_management.app:app"
