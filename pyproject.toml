@@ -1,0 +1,2 @@
+[tool.vercel]
+entrypoint = "legal_case_management.app:app"
